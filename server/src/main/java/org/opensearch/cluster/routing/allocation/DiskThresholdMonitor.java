@@ -114,7 +114,7 @@ public class DiskThresholdMonitor {
     private final Set<String> nodesOverHighThresholdAndRelocating = Sets.newConcurrentHashSet();
 
     /**
-     * The IDs of the nodes that were over the file descriptor threshold in the last check.
+     * The IDs of the nodes that were over the high file descriptor threshold in the last check.
      */
     private final Set<String> nodesOverHighFileDescriptorThreshold = Sets.newConcurrentHashSet();
 
@@ -170,7 +170,7 @@ public class DiskThresholdMonitor {
         cleanUpRemovedNodes(nodes, nodesOverLowThreshold);
         cleanUpRemovedNodes(nodes, nodesOverHighThreshold);
         cleanUpRemovedNodes(nodes, nodesOverHighThresholdAndRelocating);
-        cleanUpRemovedNodes(nodes, nodesOverFileDescriptorThreshold);
+        cleanUpRemovedNodes(nodes, nodesOverHighFileDescriptorThreshold);
 
         final ClusterState state = clusterStateSupplier.get();
         final Set<String> indicesToMarkReadOnly = new HashSet<>();
@@ -256,7 +256,7 @@ public class DiskThresholdMonitor {
 
                     logger.debug("File handles currently being used: {}%", String.format("%.1f", fdUsagePercent));
                     if (fdUsagePercent >= highThreshold) {
-                        nodesOverFileDescriptorThreshold.add(node);
+                        nodesOverHighFileDescriptorThreshold.add(node);
 
                         // marking indices read-only
                         if (routingNode != null) {
@@ -277,7 +277,7 @@ public class DiskThresholdMonitor {
                             }
                         }
                     } else {
-                        if (nodesOverFileDescriptorThreshold.contains(node)) {
+                        if (nodesOverHighFileDescriptorThreshold.contains(node)) {
                             logger.debug(
                                 "Node present in File descriptor block set, either file descriptor usage dropped or user increased low threshold setting to release block",
                                 String.format("%.1f", fdUsagePercent),
@@ -318,7 +318,7 @@ public class DiskThresholdMonitor {
                 );
 
                 // FD release check for flood stage nodes
-                if (maxFDs > 0 && nodesOverFileDescriptorThreshold.contains(node)) {
+                if (maxFDs > 0 && nodesOverHighFileDescriptorThreshold.contains(node)) {
                     double fdUsagePercent = (openFDs * 100.0) / maxFDs;
                     double lowThreshold = diskThresholdSettings.getFileDescriptorThresholdLow();
 
@@ -336,7 +336,7 @@ public class DiskThresholdMonitor {
             }
 
             // FD release check for non-flood stage nodes
-            if (maxFDs > 0 && nodesOverFileDescriptorThreshold.contains(node)) {
+            if (maxFDs > 0 && nodesOverHighFileDescriptorThreshold.contains(node)) {
                 double fdUsagePercent = (openFDs * 100.0) / maxFDs;
                 double lowThreshold = diskThresholdSettings.getFileDescriptorThresholdLow();
 
@@ -351,7 +351,7 @@ public class DiskThresholdMonitor {
                 logger.debug("File handles currently being used: {}%", String.format("%.1f", fdUsagePercent));
                 if (fdUsagePercent <= lowThreshold) {
                     if (!nodeDiskEvaluator.isNodeExceedingFloodStageWatermark(usage)) {
-                        nodesOverFileDescriptorThreshold.remove(node);
+                        nodesOverHighFileDescriptorThreshold.remove(node);
                         logger.info(
                             "file descriptor usage [{}%] dropped below low threshold [{}%] on {}, indices are eligible to release",
                             String.format("%.1f", fdUsagePercent),
